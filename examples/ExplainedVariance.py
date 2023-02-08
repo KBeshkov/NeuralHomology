@@ -56,6 +56,7 @@ for stim_type in subfolders:
                 np.logical_and(stim_bins[c] < indices, indices < stim_bins[c + 1])
             )[0]
             avg_responses[c] = np.nanmean(responses[:, bin_indx], 1)
+        avg_responses = (avg_responses-np.mean(avg_responses))/np.std(avg_responses)
         red_mfld = reducer.fit(avg_responses)
         explained_var_dat = red_mfld.explained_variance_ratio_
         exp_vars.append(explained_var_dat)
@@ -70,16 +71,19 @@ for stim_type in subfolders:
         
         plt.figure(figsize=(5*cm,5*cm))
         plt.scatter(isomap_mfld[0],isomap_mfld[1],cmap='seismic',c=stim_bins[:-1])
+        plt.axis('off')
         plt.savefig(save_path+stim_type+mouse_name+'isomap.png',transparent=True,dpi=500)
 
         
         plt.figure(figsize=(5*cm,5*cm))
         plt.scatter(tsne_mfld[0],tsne_mfld[1],cmap='seismic',c=stim_bins[:-1])
+        plt.axis('off')
         plt.savefig(save_path+stim_type+mouse_name+'tsne.png',transparent=True,dpi=500)
 
         
         plt.figure(figsize=(5*cm,5*cm))
         plt.scatter(umap_mfld[0],umap_mfld[1],cmap='seismic',c=stim_bins[:-1])
+        plt.axis('off')
         plt.savefig(save_path+stim_type+mouse_name+'umap.png',transparent=True,dpi=500)
 
 #%%   
@@ -87,14 +91,16 @@ exp_vars = np.array(exp_vars)
 exp_mean = np.mean(exp_vars,0)
 exp_std = np.std(exp_vars,0)
         
-plt.figure()
-plt.plot(n_intgs,spectrum,'k')
-plt.errorbar(n_intgs,exp_mean,exp_std,'b')
+plt.figure(figsize=(5*cm,5*cm))
+#plt.plot(n_intgs,spectrum,'k')
+plt.plot(n_intgs,exp_mean,'k')
+plt.fill_between(n_intgs,exp_mean+exp_std,exp_mean-exp_std,color='gray')
+plt.ylim(1e-4,1)
 plt.yscale('log')
 plt.xscale('log')
 plt.grid('on')
-plt.ylim(1e-4,1)
-plt.savefig(save_path+stim_type+mouse_name+'exp_var.png',transparent=True,dpi=500)
+plt.tight_layout()
+plt.savefig(save_path+'exp_var.png',transparent=True,dpi=500)
         
 #%%
 print('Explained variance by top 2 components '+str(round(np.mean(explained_variance_2),2))+' $\pm$ ' + str(round(np.std(explained_variance_2),2)))
