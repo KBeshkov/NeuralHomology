@@ -16,12 +16,12 @@ cust_cmap2 = cm.get_cmap("Set2").colors
 cm = 1 / 2.54
 plt.rcParams["font.family"] = "Arial"
 #plt.rcParams.update({'figure.max_open_warning': 0})
-plt.ioff()
+# plt.ioff()
 #%%Initialize analysis hyperparameters
 data_folder = "/Users/constb/Data/PachitariuData/"
 subfolders = next(os.walk(data_folder))[1]
 
-metric_type = "Euclidean"  # determines the metric that will be used throughout the homology calculations
+metric_type = "GeodesicKNN"  # determines the metric that will be used throughout the homology calculations
 kn = 4#''#
 if metric_type == "Euclidean":
     metric = pairwise_distances
@@ -188,28 +188,29 @@ for stim_type in subfolders:
             si_2d = np.vstack([osi_centered, dsi_centered]).T
             xy_boundaries = (0.3, 0.3) 
 
-            unimodal_neurons = np.where(
-                np.logical_and(
-                    osi_centered > xy_boundaries[0], dsi_centered > xy_boundaries[1]
-                )
-            )[0]  # clust_labels==0)[0]#
-            bimodal_neurons = np.where(
-                np.logical_and(
-                    osi_centered > xy_boundaries[0], dsi_centered < -xy_boundaries[1]
-                )
-            )[0]  # clust_labels==1)[0]#
-            nonlinear_neurons = np.where(
-                np.logical_and(
-                    osi_centered < -xy_boundaries[0], dsi_centered > xy_boundaries[1]
-                )
-            )[0]  # clust_labels==2)[0]#
-            noise_neurons = np.where(
-                np.logical_and(
-                    osi_centered < -xy_boundaries[0], dsi_centered < -xy_boundaries[1]
-                )
-            )[0]  # clust_labels==3)[0]#
+            if N_sub==0:
+                unimodal_neurons = np.where(
+                    np.logical_and(
+                        osi_centered > xy_boundaries[0], dsi_centered > xy_boundaries[1]
+                    )
+                )[0]  # clust_labels==0)[0]#
+                bimodal_neurons = np.where(
+                    np.logical_and(
+                        osi_centered > xy_boundaries[0], dsi_centered < -xy_boundaries[1]
+                    )
+                )[0]  # clust_labels==1)[0]#
+                nonlinear_neurons = np.where(
+                    np.logical_and(
+                        osi_centered < -xy_boundaries[0], dsi_centered > xy_boundaries[1]
+                    )
+                )[0]  # clust_labels==2)[0]#
+                noise_neurons = np.where(
+                    np.logical_and(
+                        osi_centered < -xy_boundaries[0], dsi_centered < -xy_boundaries[1]
+                    )
+                )[0]  # clust_labels==3)[0]#
             
-            if N_sub>0:
+            elif N_sub>0:
                 xy_boundaries = (0, 0) #do not do osi/dsi thresholding
                 unimodal_neurons = unimodal_neurons[np.argsort(np.linalg.norm(si_2d[unimodal_neurons],ord=1,axis=1))[-N_sub:]]
                 bimodal_neurons = bimodal_neurons[np.argsort(np.linalg.norm(si_2d[bimodal_neurons],ord=1,axis=1))[-N_sub:]]
@@ -494,11 +495,14 @@ plt.savefig(
 )
 
 #%%
+from scipy.ndimage.filters import gaussian_filter1d
+
 n_traces = 4
 rand_ids = np.random.randint(0,len(sorted_responses.T),[n_traces])
 for i in range(n_traces):
+    smoothed_signal = gaussian_filter1d(sorted_responses[:,rand_ids[i]],2)
     plt.figure(figsize=(3 * cm, 0.5 * cm))
-    plt.plot(sorted_responses[:,rand_ids[i]],linewidth=1.25,color='black')
+    plt.plot(stim_bins_degrees[:-1],smoothed_signal,linewidth=1.25,color='black')
     plt.axis('off')
     plt.xticks([])
     plt.yticks([])
@@ -549,7 +553,6 @@ plt.hist(
     [significant_uni, significant_bi, significant_nonlin, significant_noise],
     [-0.5, 0.5, 1.5, 2.5, 3.5],
     color=cust_cmap2[:4],
-    edgecolor="black",
     linewidth=3,
 )
 plt.xticks([])
@@ -585,8 +588,10 @@ fig.savefig(
 )  # ,figsize=(8*cm,6*cm))
 
 
-#%%
+#%% Decoding plots
+N_sub = 100
 with open("/Users/constb/Data/NeuralHomology/decoding_360_"+str(N_sub)+".pkl", "rb") as f:
+# with open("/Users/constb/Data/NeuralHomology/decoding_360.pkl", "rb") as f:
     decoding_360 = list(pickle.load(f).values())
     for i in range(len(decoding_360)):
         inval_indx = np.where(np.array(decoding_360[i])<0)[0]
@@ -594,8 +599,8 @@ with open("/Users/constb/Data/NeuralHomology/decoding_360_"+str(N_sub)+".pkl", "
         correct_array[inval_indx] = 0
         decoding_360[i] = correct_array
 
-with open(
-    "/Users/constb/Data/NeuralHomology/decoding_180_"+str(N_sub)+".pkl", "rb") as f:
+# with open("/Users/constb/Data/NeuralHomology/decoding_180_"+str(N_sub)+".pkl", "rb") as f:
+with open("/Users/constb/Data/NeuralHomology/decoding_180.pkl", "rb") as f:
     decoding_180 = list(pickle.load(f).values())
     for i in range(len(decoding_180)):
         inval_indx = np.where(np.array(decoding_180[i])<0)[0]
@@ -634,13 +639,13 @@ for i in range(len(decoding_360)):
             lineheight = 0.925-i*0.075
             plt.plot([i+1,j+1],[lineheight,lineheight],'-|',color=cust_cmap2[i])
             if signif_360[i,j]<bf_correct(0.001):
-                plt.text(xpos[j-1],lineheight+0.01,'***',ha='center',fontsize=8,color=cust_cmap2[j])
+                plt.text(xpos[j-1],lineheight,'***',ha='center',fontsize=12,color=cust_cmap2[j])
             elif signif_360[i,j]<bf_correct(0.01):
-                plt.text(xpos[j-1],lineheight+0.01,'**',ha='center',fontsize=8,color=cust_cmap2[j])
+                plt.text(xpos[j-1],lineheight,'**',ha='center',fontsize=12,color=cust_cmap2[j])
             elif signif_360[i,j]<bf_correct(0.05):
-                plt.text(xpos[j-1],lineheight+0.01,'*',ha='center',fontsize=8,color=cust_cmap2[j])
+                plt.text(xpos[j-1],lineheight,'*',ha='center',fontsize=12,color=cust_cmap2[j])
             else:
-                plt.text(xpos[j-1],lineheight+0.01,'n.s.',ha='center',fontsize=6,color=cust_cmap2[j])
+                plt.text(xpos[j-1],lineheight+0.02,'n.s.',ha='center',fontsize=10,color=cust_cmap2[j])
 # plt.xticks(np.arange(1,5),['DO','O','D','untuned'])
 plt.xticks([])
 plt.ylim(0,1)
@@ -665,13 +670,13 @@ for i in range(len(decoding_360)):
             lineheight = 0.925-i*0.075
             plt.plot([i+1,j+1],[lineheight,lineheight],'-|',color=cust_cmap2[i])
             if signif_180[i,j]<bf_correct(0.001):
-                plt.text(xpos[j-1],lineheight+0.01,'***',ha='center',fontsize=8,color=cust_cmap2[j])
+                plt.text(xpos[j-1],lineheight,'***',ha='center',fontsize=12,color=cust_cmap2[j])
             elif signif_180[i,j]<bf_correct(0.01):
-                plt.text(xpos[j-1],lineheight+0.01,'**',ha='center',fontsize=8,color=cust_cmap2[j])
+                plt.text(xpos[j-1],lineheight,'**',ha='center',fontsize=12,color=cust_cmap2[j])
             elif signif_180[i,j]<bf_correct(0.05):
-                plt.text(xpos[j-1],lineheight+0.01,'*',ha='center',fontsize=8,color=cust_cmap2[j])
+                plt.text(xpos[j-1],lineheight,'*',ha='center',fontsize=12,color=cust_cmap2[j])
             else:
-                plt.text(xpos[j-1],lineheight+0.01,'n.s.',ha='center',fontsize=6,color=cust_cmap2[j])
+                plt.text(xpos[j-1],lineheight+0.02,'n.s.',ha='center',fontsize=10,color=cust_cmap2[j])
 
 # plt.xticks(np.arange(1,5),['DO','O','D','untuned'])
 plt.xticks([])
@@ -695,20 +700,20 @@ violin_plot['cmins'].set_edgecolor('black')
 for i in range(len(decoding_difference)):
     for j in range(len(decoding_difference)):
         if i<j:
-            lineheight = 0.445-i*0.05
+            lineheight = 0.475-i*0.075
             plt.plot([i+1,j+1],[lineheight,lineheight],'-|',color=cust_cmap2[i])
             if signif_diff[i,j]<bf_correct(0.001):
-                plt.text(xpos[j-1],lineheight+0.005,'***',ha='center',fontsize=8,color=cust_cmap2[j])
+                plt.text(xpos[j-1],lineheight,'***',ha='center',fontsize=12,color=cust_cmap2[j])
             elif signif_diff[i,j]<bf_correct(0.01):
-                plt.text(xpos[j-1],lineheight+0.005,'**',ha='center',fontsize=8,color=cust_cmap2[j])
+                plt.text(xpos[j-1],lineheight,'**',ha='center',fontsize=12,color=cust_cmap2[j])
             elif signif_diff[i,j]<bf_correct(0.05):
-                plt.text(xpos[j-1],lineheight+0.005,'*',ha='center',fontsize=8,color=cust_cmap2[j])
+                plt.text(xpos[j-1],lineheight,'*',ha='center',fontsize=12,color=cust_cmap2[j])
             else:
-                plt.text(xpos[j-1],lineheight+0.01,'n.s.',ha='center',fontsize=6,color=cust_cmap2[j])
+                plt.text(xpos[j-1],lineheight+0.02,'n.s.',ha='center',fontsize=10,color=cust_cmap2[j])
 
 # plt.xticks(np.arange(1,5),['DO','O','D','untuned'])
 plt.xticks([])
-plt.ylim(-0.5,0.5)
+plt.ylim(-0.55,0.55)
 plt.grid('on')
 plt.savefig("/Users/constb/Figures/NeuralHomology/decoding_difference"+str(N_sub)+".png",
     bbox_inches='tight',
