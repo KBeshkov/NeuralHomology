@@ -549,26 +549,26 @@ def generate_gabors(res, angle, sfq, width, aspectr=1):
 def orientation_selectivity_index(X, bins):
     N = len(X.T)
     # X = X/np.linalg.norm(X,axis=0)
-    pref_tunning = np.argmax(X, 0)
-    orth_tunning = (pref_tunning + int(len(bins) / 4)) % len(bins)
+    pref_tuning = np.argmax(X, 0)
+    orth_tuning = (pref_tuning + int(len(bins) / 4)) % len(bins)
+    #orth_tuning2 = (pref_tuning - int(len(bins) / 4)) % len(bins)
     R_pref = np.zeros(N)
     R_orth = np.zeros(N)
     for i in range(N):
-        R_pref[i] = X[pref_tunning[i], i]
-        R_orth[i] = X[orth_tunning[i], i]
+        R_pref[i] = X[pref_tuning[i], i]
+        R_orth[i] = X[orth_tuning[i], i] #max(X[orth_tuning1[i], i], X[orth_tuning2[i],i])
     return (R_pref - R_orth) / (R_pref + R_orth)
 
 
 def direction_selectivity_index(X, bins):
     N = len(X.T)
-    # X = X/np.linalg.norm(X,axis=0,keepdims=True)
-    pref_tunning = np.argmax(X, 0)
-    opp_tunning = (pref_tunning + int(len(bins) / 2)) % len(bins)
+    pref_tuning = np.argmax(X, 0)
+    opp_tuning = (pref_tuning + int(len(bins) / 2)) % len(bins)
     R_pref = np.zeros(N)
     R_opp = np.zeros(N)
     for i in range(N):
-        R_pref[i] = X[pref_tunning[i], i]
-        R_opp[i] = X[opp_tunning[i], i]
+        R_pref[i] = X[pref_tuning[i], i]
+        R_opp[i] = X[opp_tuning[i], i]
     return (R_pref - R_opp) / (R_pref + R_opp)
 
 
@@ -585,6 +585,19 @@ def angle_selectivity_index(X, angl_int):
         R_orth[i] = X[orth_tunning[i], i]
     return (R_pref - R_orth) / (R_pref + R_orth)
 
+def fit_von_mises(x,y):
+    von_mises = lambda x, mu, kappa, m: m*np.exp(kappa*np.cos(x-mu))
+    von_mises_mix = lambda x, mu1, mu2, kappa1, kappa2, m1, m2, b: von_mises(x ,mu1, kappa1, m1)+von_mises(x, mu2, kappa2, m2)+b
+    param_bounds = np.array([[-np.pi,np.pi],[-np.pi,np.pi],[0,np.inf],[0,np.inf],[0,np.inf],[0,np.inf],[0,np.inf]])
+    init_params = [0,0,1,1,1,1,np.mean(y)]
+    try:
+        params = curve_fit(von_mises_mix, x, y, p0=init_params, bounds=param_bounds.T, method='trf', maxfev=10000)[0]
+    except:
+        params = [0,0,1,1,0,0,np.mean(y)]
+    f_x = von_mises_mix(x,*params)
+    f_x1 = von_mises(x, params[0], params[2], params[4])+params[6]
+    f_x2 = von_mises(x, params[1], params[3], params[5])+params[6]
+    return f_x, f_x1, f_x2, params
 
 def reassign_kmeans_labels(labels, clust_centers):
     nlabels = np.copy(labels)
