@@ -287,6 +287,14 @@ class Manifold_Generator:
             w = P * np.sin(Theta) * (1 + eps * np.sin(V))
             KB = np.array([x, y, z, w])
         return KB
+    
+    def Star(self, amount_of_points, k, *args):
+        "Creates a star shape with k rays"
+        r, theta = args[0], np.linspace(0, 2 * np.pi, amount_of_points, endpoint=False)
+        return np.array([(1-(np.cos((k/2)*theta)**2)**r)*np.cos(theta),
+                         (1-(np.cos((k/2)*theta)**2)**r)*np.sin(theta)])
+        # return np.array([r*(k-1)*np.cos(theta)+r*np.cos((k-1)*theta),
+        #                  r*(k-1)*np.sin(theta)-r*np.sin((k-1)*theta)])
 
 
 class Persistent_Homology:

@@ -532,7 +532,7 @@ def generate_gratings(res, angle, sfq):
     k_r = sfq * R @ k
     x = np.linspace(-1, 1, res)
     X, Y = np.meshgrid(x, x)
-    grating = np.cos(k_r[0] * Y + k_r[1] * X)
+    grating = np.cos(k_r[0] * Y + k_r[1] * X + np.pi/2)
     return grating / np.linalg.norm(grating)
 
 
@@ -551,12 +551,11 @@ def orientation_selectivity_index(X, bins):
     # X = X/np.linalg.norm(X,axis=0)
     pref_tuning = np.argmax(X, 0)
     orth_tuning = (pref_tuning + int(len(bins) / 4)) % len(bins)
-    #orth_tuning2 = (pref_tuning - int(len(bins) / 4)) % len(bins)
     R_pref = np.zeros(N)
     R_orth = np.zeros(N)
     for i in range(N):
         R_pref[i] = X[pref_tuning[i], i]
-        R_orth[i] = X[orth_tuning[i], i] #max(X[orth_tuning1[i], i], X[orth_tuning2[i],i])
+        R_orth[i] = X[orth_tuning[i], i] 
     return (R_pref - R_orth) / (R_pref + R_orth)
 
 

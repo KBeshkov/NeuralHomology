@@ -10,7 +10,7 @@ import time
 np.warnings.filterwarnings('ignore', category=np.VisibleDeprecationWarning)                 
 plt.style.use("default")  # ../misc/report.mplstyle')
 cust_cmap = sns.color_palette("flare_r", as_cmap=True)
-cust_cmap2 = cm.get_cmap("tab10").colors
+cust_cmap2 = cm.get_cmap("Set2").colors
 cm = 1 / 2.54
 plt.rcParams["font.family"] = "Arial"
 #plt.rcParams.update({'figure.max_open_warning': 0})
@@ -49,9 +49,9 @@ pvalue = 0.1 / 29  # Bonferonni corrected pvalue in percent
 
 
 r2_perc = 75 #percentile threshold selecting the best predicted cells
-angle_spacing = np.pi/8 #determines how many clusters to consider
+angle_spacing = np.pi/16 #determines how many clusters to consider
 min_spacing = np.pi/2
-min_peak_ratio = 0.5 #determines the ratio between peaks needed for a tuning curve to be considered bimodal
+min_peak_ratio = 0.70 #determines the ratio between peaks needed for a tuning curve to be considered bimodal
  
 
 significant_manifolds = {}
@@ -79,7 +79,7 @@ for stim_type in subfolders:
             f =  open(data_vm_folder+'von_Mises_'+f_name+'.pkl','rb')
             von_mises_tuning_curves, von_mises_1st, von_mises_2nd, tuning_parameters, r2_scores = pickle.load(f)
             
-            r2_thresh = np.percentile(r2_scores,r2_perc)
+            r2_thresh = 0.6#np.percentile(r2_scores,r2_perc)
             selected_tun_curves = avg_responses[:,r2_scores>r2_thresh]
             selected_fit_curves = von_mises_tuning_curves[:,r2_scores>r2_thresh]
             selected_parameters = tuning_parameters[r2_scores>r2_thresh,:]
@@ -96,14 +96,12 @@ for stim_type in subfolders:
 
             edges_centers = np.arange(min_spacing,np.pi+angle_spacing,2*angle_spacing)#[:-1]
             unimod = np.where(np.logical_or(peak_ratio<min_peak_ratio, angle_difference<min_spacing-angle_spacing))[0]
-            cell_labels_list = [unimod]
-            clust_responses = [selected_tun_curves[:,unimod]]
-            clust_responses_fitted = [selected_fit_curves[:,unimod]]
-            for i in range(len(edges_centers)):
-                cell_labels_list.append(np.where(np.logical_and(peak_ratio>min_peak_ratio, np.logical_and(angle_difference>edges_centers[i]-angle_spacing, angle_difference<edges_centers[i]+angle_spacing)))[0])
-                clust_responses.append(selected_tun_curves[:,cell_labels_list[-1]])
-                clust_responses_fitted.append(selected_fit_curves[:,cell_labels_list[-1]])
-                
+            bimod = np.where(np.logical_and(peak_ratio>min_peak_ratio, np.logical_and(angle_difference>edges_centers[0], angle_difference<edges_centers[-1]-angle_spacing)))[0]
+            lastmod = np.where(np.logical_and(peak_ratio>min_peak_ratio, np.logical_and(angle_difference>edges_centers[-1]-angle_spacing, angle_difference<edges_centers[-1]+angle_spacing)))[0]
+            cell_labels_list = [unimod, bimod, lastmod]
+            clust_responses = [selected_tun_curves[:,unimod], selected_tun_curves[:,bimod], selected_tun_curves[:,lastmod]]
+            clust_responses_fitted = [selected_fit_curves[:,unimod], selected_fit_curves[:,bimod], selected_fit_curves[:,lastmod]]
+                    
             for i, resps in enumerate(clust_responses):
                 if half_circle == "half":
                     resps = resps[:int(stim_res / 2)+1]
@@ -114,6 +112,7 @@ for stim_type in subfolders:
                         pvalue_hom[1] > pvalue_hom[0])
                 except:
                     significant_manifolds[stim_type + "_" + mouse_name+'pop_'+str(i+1)] = 0
+                print(len(resps.T))
                 
             with open(data_vm_folder+'/significant_manifolds_von_Mises_'+metric_type+'_'+half_circle+'.pkl', 'wb') as f:
                 pickle.dump(significant_manifolds, f)
@@ -152,41 +151,47 @@ for stim_type in subfolders:
 #%%
 hom_subpop =  pickle.load(open(data_vm_folder+'/significant_manifolds_von_Mises_'+metric_type+'_'+half_circle+'.pkl','rb'))
 signif_names = [i for i in hom_subpop.keys() if i[-1]=='1']
+n_subpops = int(len(hom_subpop)/29)
+hist_spacing = 1/n_subpops
 
-significant_0 = np.array([hom_subpop[i] for i in hom_subpop if i[-1]=='1'])
-significant_90 = np.array([hom_subpop[i] for i in hom_subpop if i[-1]=='2'])
-significant_135 = np.array([hom_subpop[i] for i in hom_subpop if i[-1]=='3'])
-significant_180 = np.array([hom_subpop[i] for i in hom_subpop if i[-1]=='4'])
-
+significant_mflds = [[] for i in range(n_subpops)]
+for hom in hom_subpop:
+    significant_mflds[int(hom[-1])-1].append(hom_subpop[hom])
+significant_mflds = [significant_mflds[0], 
+                     significant_mflds[2], 
+                     significant_mflds[1]]
 
 stim_names = ['Static_','Short','Local','Minnie','Drifting','Noisy','LowContrast']
 stim_cmap = ['#873d1bff','#d66634ff','#3f8d2fff','#76cb65ff','#315992ff','#4c7dc3ff','#7b9fd2ff']
-prev_hist_data = [[],[],[],[]]
+prev_hist_data = [[] for i in range(n_subpops)]
 plt.figure(figsize=(8 * cm, 6 * cm))
 for i, s in enumerate(stim_names):
     stim_indices = [s in cur_stim for cur_stim in signif_names]
     
-    curr_hist_data = [np.concatenate([significant_0[stim_indices],prev_hist_data[0]]),
-                      np.concatenate([significant_90[stim_indices],prev_hist_data[1]]),
-                      np.concatenate([significant_135[stim_indices],prev_hist_data[2]]),
-                      np.concatenate([significant_180[stim_indices],prev_hist_data[3]])]
+    curr_hist_data = [np.concatenate([np.array(significant_mflds[i])[stim_indices],prev_hist_data[i]])
+                      for i in range(n_subpops)]
     for j, dat in enumerate(curr_hist_data):
+        dat[dat>3] = 3 #compress cases with more than 3 features to last bin
         dat = np.histogram(dat,[0,1,2,3,4])[0]
         plt.bar(
-            [j*0.25, 1.25+j*0.25, 2.5+j*0.25, 3.75+j*0.25],
+            [j*hist_spacing, 1+hist_spacing+j*hist_spacing, 
+             2*(1+hist_spacing)+j*hist_spacing, 
+             3*(1+hist_spacing)+j*hist_spacing],
             dat,
             color=[stim_cmap[i]],
-            zorder=10-i,
-            width=0.2
+            zorder=20-i,
+            width=1.25*hist_spacing/2
         )
 
-        if i==6:
+        if i==len(stim_names)-1:
             plt.bar(
-                [j*0.25, 1.25+j*0.25, 2.5+j*0.25, 3.75+j*0.25],
+                [j*hist_spacing, 1+hist_spacing+j*hist_spacing, 
+                 2*(1+hist_spacing)+j*hist_spacing, 
+                 3*(1+hist_spacing)+j*hist_spacing],
                 dat,
                 color=(0,0,0,0),
                 zorder=100,
-                width=0.2,
+                width=1.25*hist_spacing/2,
                 edgecolor=cust_cmap2[j],
                 linewidth=1
             )
@@ -205,4 +210,42 @@ plt.savefig(
     bbox_inches="tight",
 )  # ,figsize=(8*cm,6*cm))
 
+#%%
+legend = plt.legend(
+    ["D cells", "O cells", "DD cells"],
+    loc="upper left",
+    fontsize=8,
+    framealpha=0,
+    frameon=False,
+    bbox_to_anchor=(1, 1),
+)
+for i in range(3):
+    legend.legendHandles[i].set_color([0,0,0,0])
+    legend.legendHandles[i].set_edgecolor(cust_cmap2[i])
+    legend.legendHandles[i].set_linewidth(2.5)
+fig = legend.figure
+fig.canvas.draw()
+bbox = legend.get_window_extent().transformed(fig.dpi_scale_trans.inverted())
+fig.savefig(
+    "/Users/constb/Figures/NeuralHomology/legend_cells_vM.png",
+    bbox_inches=bbox,
+    transparent=True,
+    dpi=500,
+)  # ,figsize=(8*cm,6*cm))
+
+    
+#%% Explore R2 distributions
+
+r2_distrib = {}
+for stim_type in subfolders:
+    files = next(os.walk(data_folder + stim_type))[2]
+    for f_name in files:     
         
+        mouse_name = f_name[-20:-17]
+        print("Loaded stimulus " + stim_type + " for mouse " + mouse_name)
+        
+        if 'von_Mises_'+f_name+'.pkl' in list(os.walk(data_vm_folder))[0][2]:
+            f =  open(data_vm_folder+'von_Mises_'+f_name+'.pkl','rb')
+            von_mises_tuning_curves, von_mises_1st, von_mises_2nd, tuning_parameters, r2_scores = pickle.load(f)
+            r2_distrib[f_name] = r2_scores
+    

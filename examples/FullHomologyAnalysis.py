@@ -16,12 +16,12 @@ cust_cmap2 = cm.get_cmap("Set2").colors
 cm = 1 / 2.54
 plt.rcParams["font.family"] = "Arial"
 #plt.rcParams.update({'figure.max_open_warning': 0})
-#plt.ioff()
+plt.ioff()
 #%%Initialize analysis hyperparameters
 data_folder = "/Users/constb/Data/PachitariuData/"
 subfolders = next(os.walk(data_folder))[1]
 
-metric_type = "GeodesicKNN"  # determines the metric that will be used throughout the homology calculations
+metric_type = "Euclidean"  # determines the metric that will be used throughout the homology calculations
 kn = 4#''#
 if metric_type == "Euclidean":
     metric = pairwise_distances
@@ -49,6 +49,7 @@ pvalue = 0.1 / 29  # Bonferonni corrected pvalue in percent
 reducer = PCA(
     n_components=2
 )  # umap.UMAP(n_neighbors=50,min_dist=0,n_components=2) #method for dimensinoality reduction plots
+xy_boundaries = (0.3, 0.3) #OSI and DSI boundaries
 
 
 Homologizer = Persistent_Homology()
@@ -186,32 +187,51 @@ for stim_type in subfolders:
             osi_centered = osi - 0.5
             dsi_centered = dsi - 0.5
             si_2d = np.vstack([osi_centered, dsi_centered]).T
-            xy_boundaries = (0.3, 0.3) 
 
             if N_sub==0:
                 unimodal_neurons = np.where(
                     np.logical_and(
                         osi_centered > xy_boundaries[0], dsi_centered > xy_boundaries[1]
                     )
-                )[0]  # clust_labels==0)[0]#
+                )[0]
                 bimodal_neurons = np.where(
                     np.logical_and(
                         osi_centered > xy_boundaries[0], dsi_centered < -xy_boundaries[1]
                     )
-                )[0]  # clust_labels==1)[0]#
+                )[0]
                 nonlinear_neurons = np.where(
                     np.logical_and(
                         osi_centered < -xy_boundaries[0], dsi_centered > xy_boundaries[1]
                     )
-                )[0]  # clust_labels==2)[0]#
+                )[0]
                 noise_neurons = np.where(
                     np.logical_and(
                         osi_centered < -xy_boundaries[0], dsi_centered < -xy_boundaries[1]
                     )
-                )[0]  # clust_labels==3)[0]#
+                )[0]
             
             elif N_sub>0:
                 xy_boundaries = (0, 0) #do not do osi/dsi thresholding
+                unimodal_neurons = np.where(
+                    np.logical_and(
+                        osi_centered > xy_boundaries[0], dsi_centered > xy_boundaries[1]
+                    )
+                )[0]
+                bimodal_neurons = np.where(
+                    np.logical_and(
+                        osi_centered > xy_boundaries[0], dsi_centered < -xy_boundaries[1]
+                    )
+                )[0]
+                nonlinear_neurons = np.where(
+                    np.logical_and(
+                        osi_centered < -xy_boundaries[0], dsi_centered > xy_boundaries[1]
+                    )
+                )[0]
+                noise_neurons = np.where(
+                    np.logical_and(
+                        osi_centered < -xy_boundaries[0], dsi_centered < -xy_boundaries[1]
+                    )
+                )[0]
                 unimodal_neurons = unimodal_neurons[np.argsort(np.linalg.norm(si_2d[unimodal_neurons],ord=1,axis=1))[-N_sub:]]
                 bimodal_neurons = bimodal_neurons[np.argsort(np.linalg.norm(si_2d[bimodal_neurons],ord=1,axis=1))[-N_sub:]]
                 nonlinear_neurons = nonlinear_neurons[np.argsort(np.linalg.norm(si_2d[nonlinear_neurons],ord=1,axis=1))[-N_sub:]]
@@ -599,27 +619,31 @@ for i, s in enumerate(stim_names):
     prev_hist_data = curr_hist_data
 plt.xticks([])
 plt.ylim(0, 27)
-plt.savefig(
-    "/Users/constb/Figures/NeuralHomology/"
-    + half_circle
-    + metric_type
-    + str(N_sub)
-    + str(xy_boundaries[0])
-    + "subset_cohom_features.png",
-    transparent=True,
-    dpi=500,
-    bbox_inches="tight",
-)  # ,figsize=(8*cm,6*cm))
+# plt.savefig(
+#     "/Users/constb/Figures/NeuralHomology/"
+#     + half_circle
+#     + metric_type
+#     + str(N_sub)
+#     + str(xy_boundaries[0])
+#     + "subset_cohom_features.png",
+#     transparent=True,
+#     dpi=500,
+#     bbox_inches="tight",
+# )  # ,figsize=(8*cm,6*cm))
 
 #%%
 legend = plt.legend(
-    ["DO cells", "O cells", "D cells", "Untuned cells"],
+    ["D cells", "O cells", "DD cells", "Untuned cells"],
     loc="upper left",
     fontsize=8,
-    framealpha=1,
+    framealpha=0,
     frameon=False,
     bbox_to_anchor=(1, 1),
 )
+for i in range(4):
+    legend.legendHandles[i].set_color([0,0,0,0])
+    legend.legendHandles[i].set_edgecolor(cust_cmap2[i])
+    legend.legendHandles[i].set_linewidth(2.5)
 fig = legend.figure
 fig.canvas.draw()
 bbox = legend.get_window_extent().transformed(fig.dpi_scale_trans.inverted())
