@@ -35,7 +35,7 @@ elif metric_type == "Implicit":
 Homologizer = Persistent_Homology()
 dim_red = 0  # determines whether to do dimensionality reduction
 
-half_circle = 'half'
+half_circle = 'full'
 
 stim_res = 126
 stim_bins = np.linspace(0, 2 * np.pi + 2 * np.pi / (stim_res + 4), stim_res + 2)[

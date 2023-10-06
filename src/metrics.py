@@ -42,17 +42,57 @@ def geodesic(X, r=-1, r_step=0.1, eps=0.2, count=1):
 
 
 class geodesic_knn:
+    """Class for computing geodesic distances based on a k-nearest neighbors graph"""
     def __init__(self, k=2, adaptive=False):
+        """
+        Parameters
+        ----------
+        k : int, optional
+            The number of nearest neighbors. The default is 2.
+        adaptive : bool, optional
+            Whether to increase k until the graph is becomes fully connected.
+            The default is False.
+        """
         self.k = k
         self.adaptive = adaptive
         
     def symmetrize(self, d):
+        """
+        Given that k-nearest neighbor graphs need not be symmetric. This function
+        makes the distance-weighted graph undirected, which is necessary for 
+        the notion of distance to make sense.
+
+        Parameters
+        ----------
+        d : numpy array
+            A non-symmetric distance matrix.
+
+        Returns
+        -------
+        d : numpy array
+            A symmetric distance matrix.
+
+        """
         d_stack = np.stack([d,d.T])
         d_stack[d_stack==0] = np.inf
         d = np.min(d_stack,0)
         return d
 
     def fit(self, X):
+        """
+        Fits a k-nearest neighbor graph to a point cloud.
+
+        Parameters
+        ----------
+        X : numpy array
+            A point cloud.
+
+        Returns
+        -------
+        d_geod : numpy array
+            A distance matrix of geodesic distances.
+
+        """
         d = self.symmetrize(kneighbors_graph(X, self.k, mode="distance").toarray())
         d_geod = shortest_path(d)
         if self.adaptive:
@@ -73,20 +113,6 @@ class geodesic_knn:
                 ] = d_current[np.logical_and(~np.isinf(d_current), np.isinf(d_geod))]
         return d_geod
 
-
-def implicit_metric_circle(X,dt=0.05):
-    d = np.zeros([len(X),len(X)])
-    for i in range(len(X)):
-        X_shifted = np.concatenate([X[i:],X[:i]])
-        count = 0
-        for j in range(i+1,len(X)):
-            if count<len(X)/2:
-                d[i,j] = dt*np.linalg.norm(X_shifted[0:count]-X_shifted[1:count+1])
-            else:
-                d[i,j] = dt*np.linalg.norm(X_shifted[count+1:-1]-X_shifted[count:-2])
-            count += 1
-                    
-    return d+d.T
 
 def extract_cycles(dmat, cocycle, threshold, all_generators=False):
     S = []
@@ -115,51 +141,6 @@ def extract_cycles(dmat, cocycle, threshold, all_generators=False):
         return np.unique(S[-1])
     else:
         return S
-
-
-def EM_dist(X, Y, L1=0, L2=0, D=0, norm="euclidean"):
-    """Earth mover's distance as a linear assignment problem:
-
-    Input:
-        X: an array of inputs (eg spikes)
-        Y: an array of inputs
-        L1 = a list of cells that are being used in X
-        L2 = a list of cells that are being used in Y
-        D: a precomputed disance matrix
-
-    Output: the distance between clusters
-    """
-    if norm == "euclidean":
-        d = cdist(X, Y)
-        assignment = linear_sum_assignment(d)
-        em_dist = d[assignment].sum()
-        return em_dist
-    elif norm == "spiking":
-        L = np.ix_(L1, L2)
-        d = D[L]
-        em_dist = np.mean(d[linear_sum_assignment(d)])
-        return em_dist
-
-
-def pairwise_EM_dist(X):
-    D = np.zeros([len(X), len(X)])
-    for i in range(len(X)):
-        for j in range(len(X)):
-            if i > j:
-                D[i, j] = EM_dist(X[i], X[j])
-    return D + D.T
-
-
-def order_complex(D):
-    N = len(D[:, 0])
-    ord_mat = np.triu(D)
-    np.fill_diagonal(ord_mat, 0)
-    Ord = rankdata(ord_mat.flatten(), method="dense").reshape(np.shape(D))
-    #    inv_ranks = np.sum(Ord==1)
-    Ord = np.triu(Ord) + np.triu(Ord).T
-    Ord = Ord  # - inv_ranks
-    np.fill_diagonal(Ord, 0)
-    return Ord / np.max(Ord)
 
 
 def rips_plot(
@@ -251,120 +232,14 @@ def direct_graph_plot(pcloud, radius, graph=False, dmat=None, polygons=False):
                             ax.add_collection(p)
 
 
-"""Finds the most persistent component of a given dimension > 0"""
-
-
 def max_pers(pd, dim=1):
+    """Finds the most persistent component of a given dimension > 0"""
     if len(pd[dim]) > 0:
         pers = pd[dim][:, 1] - pd[dim][:, 0]
         max_persistence = np.max(pers)
         return max_persistence
     else:
         return 0
-
-
-def recurrence_plot(X, thresh=0.1, func=lambda x: pairwise_distances(x)):
-    D = func(X)
-    D[D >= thresh] = 0
-    D[np.logical_and(D < thresh, D != 0)] = 1
-    np.fill_diagonal(D, 1)
-    return D
-
-
-def gen_weight_mat(N, rank, g=1, svd=True, eigenvals=[], zero=False):
-    P = np.zeros([N, N])
-    if svd == False:
-        for r in range(rank):
-            m = np.random.randn(N)
-            n = np.random.randn(N)
-            P = P + np.outer(m, n) / (1 + r)
-        gX = ((g**2) / N) * np.random.randn(N, N)
-        J = gX + P
-        np.fill_diagonal(J, 0)
-        return J
-    elif svd == "eigdecomp":
-        U = ortho_group.rvs(N)
-        if eigenvals != []:
-            D = np.diag(np.concatenate([eigenvals, np.zeros(N - rank)]))
-        else:
-            D = np.diag(
-                np.concatenate([2 * np.random.rand(rank) - 1, np.zeros(N - rank)])
-            )
-        V = np.linalg.inv(U)
-        P = 5 * rank * (np.matmul(U, np.matmul(D, V))) / N * rank
-        gX = ((g**2) / N) * np.random.randn(N, N)
-        J = gX + P
-        np.fill_diagonal(J, 0)
-        return J, [U, D, V]
-    elif svd == "qr_decomp":
-        # A = 0.01*np.random.randn(N,N)
-        A = ortho_group.rvs(N)
-        # np.fill_diagonal(A,0)
-        U = np.linalg.qr(A)
-        for i in range(N):
-            if i < rank:
-                U[1][i, i] = eigenvals[i]
-            else:
-                U[1][i, i] = 0
-        P = U[0] @ U[1] @ U[0].T
-        gX = ((g**2) / N) * np.random.randn(N, N)
-        J = gX + P
-        if zero:
-            np.fill_diagonal(J, 0)
-        return J, U
-    else:
-        U = ortho_group.rvs(N)
-        if eigenvals != []:
-            D = np.diag(np.concatenate([eigenvals, np.zeros(N - rank)]))
-        else:
-            D = np.diag(
-                np.concatenate([np.sort(np.random.randn(rank)), np.zeros(N - rank)])
-            )
-        V = ortho_group.rvs(N)
-        P = rank * (np.matmul(U, np.matmul(D, V.T))) / N * rank
-        gX = ((g**2) / N) * np.random.randn(N, N)
-        J = gX + P
-        # np.fill_diagonal(J,0)
-        return J, [U, D, V]
-
-
-def low_rank_rnn(
-    N, T, I=0, P=0, rank=1, mu=0.05, init_x=[0], g=1, svd=False, act_fun=np.tanh
-):
-    if P is None:
-        P = gen_weight_mat(N, rank, g, svd)[0]
-    x = np.zeros([N, T])
-    if len(init_x) == 0:
-        x[:, 0] = np.random.rand(N)
-    else:
-        x[:, 0] = init_x
-    for t in range(T - 1):
-        dx = -x[:, t] + np.dot(P, act_fun(x[:, t])) + I[:, t]
-        x[:, t + 1] = x[:, t] + mu * dx
-    return x
-
-
-def annotate_imshow(D, round_val=2, txt_size=6):
-    fig, ax = plt.subplots(1, 1, dpi=200)
-    ax.imshow(D, aspect="auto")
-    for (j, i), label in np.ndenumerate(D):
-        if label != 0:
-            ax.text(
-                i,
-                j,
-                round(label, round_val),
-                ha="center",
-                va="center",
-                fontsize=txt_size,
-            )
-
-
-def transient_nets(N, T, W, I, mu=0.05):
-    X = np.zeros([N, T])
-    for t in range(T - 1):
-        dX = 10 * (-X[:, t] + np.dot(W, X[:, t]) + I[:, t])
-        X[:, t + 1] = X[:, t] + mu * dX
-    return X
 
 
 def plot_circl_eig(r):
@@ -381,149 +256,6 @@ def get_boundary(x):
     points = hull.points
     vertices = hull.vertices
     return np.squeeze(np.array([[points[vertices, 0], points[vertices, 1]]]))
-
-
-"""Takes in a list of persistence diagrams and calculates the bottleneck distances between them"""
-
-
-def bottleneck_dmat(pdiag1, pdiag2, dim=1):
-    D = np.zeros([len(pdiag1), len(pdiag2)])
-    for i in range(len(pdiag1)):
-        for j in range(len(pdiag2)):
-            if i > j:
-                D[i, j] = persim.bottleneck(pdiag1[i][dim], pdiag2[j][dim])
-    D = D + D.T
-    return D
-
-
-def bottleneck_time(pdiags, dim=1, features=1, plot=False):
-    pers_vals = []
-    matchings = []
-    for t in range(len(pdiags) - 1):
-        feat1, feat2 = (
-            np.argsort(pdiags[t][dim][:, 1] - pdiags[t][dim][:, 0])[-features:],
-            np.argsort(pdiags[t + 1][dim][:, 1] - pdiags[t + 1][dim][:, 0])[-features:],
-        )
-        pers_vals.append([pdiags[t][dim][feat1, :], pdiags[t + 1][dim][feat2, :]])
-        _, matching = persim.bottleneck(
-            np.array(pers_vals[-1][0]), np.array(pers_vals[-1][1]), matching=True
-        )
-        matchings.append(matching)
-
-    if plot == True:
-        for t in range(len(pdiags) - 1):
-            persim.bottleneck_matching(pers_vals[t][0], pers_vals[t][1], matchings[t])
-        plt.xlim([0, 1])
-        plt.ylim([0, 1])
-        plt.plot([0, 1], [0, 1], "k")
-    return pers_vals, matchings
-
-
-def visualize_functions(points, functs):
-    for i in functs:
-        plt.figure(dpi=200)
-        plt.plot(i(points))
-
-
-def plot_grid(layer_list, fft=False):
-    if fft:
-        for i in range(len(layer_list)):
-            plt.figure(dpi=200)
-            n_figs = int(np.sqrt(len(layer_list[i])))
-            N = int(np.sqrt(len(layer_list[i].T)))
-            for j in range(n_figs**2):
-                rshaped_img = np.reshape(layer_list[i][j], [N, N])
-                rshaped_img = np.fft.ifftshift(rshaped_img)
-                rshaped_img = np.fft.fft2(rshaped_img)
-                rshaped_img = np.fft.fftshift(rshaped_img)
-                plt.subplot(n_figs, n_figs, j + 1)
-                # plt.contourf(x,y,np.abs(rshaped_img),vmax=100000,levels=10)
-                plt.imshow(np.abs(rshaped_img), vmax=1)
-                plt.axis("off")
-            plt.tight_layout()
-        return
-    for i in range(len(layer_list)):
-        plt.figure(dpi=200)
-        n_figs = int(np.sqrt(len(layer_list[i])))
-        N = int(np.sqrt(len(layer_list[i].T)))
-        for j in range(n_figs**2):
-            rshaped_img = np.reshape(layer_list[i][j], [N, N])
-            plt.subplot(n_figs, n_figs, j + 1)
-            plt.imshow(rshaped_img, vmin=-1, vmax=1)
-            plt.axis("off")
-        plt.tight_layout()
-
-
-def compute_kernel(model, data):
-    X = np.zeros([len(data), len(data)])
-    model_out = model(data.T)[1]
-    for i in range(len(data)):
-        for j in range(len(data)):
-            if i >= j:
-                X[i, j] = model_out[i] @ model_out[j].T
-    X = X + X.T
-    return X / np.linalg.norm(X)
-
-
-def eval_expressivity(dat, iters=10, deg=20, plot=False, compositional=0):
-    scores = []
-    data = np.copy(dat)
-    for i in range(iters):
-        if compositional > 0:
-            indcs = np.random.choice(
-                np.arange(0, len(dat.T)), size=compositional, replace=False
-            )
-            data = dat[:, indcs]
-        train_id = np.sort(
-            np.random.choice(
-                np.arange(0, len(dat)), size=int(0.7 * len(dat)), replace=False
-            )
-        )
-        test_id = np.setdiff1d(np.arange(0, len(dat)), train_id)
-        data_train = data[train_id]
-        data_test = data[test_id]
-        rand_poly = npoly.chebyshev.chebval(
-            np.linspace(-1, 1, len(data)), 0.1 * np.random.randn(deg)
-        )
-        poly_fit = LinearRegression().fit(data_train, rand_poly[train_id])
-        scores.append(poly_fit.score(data_test, rand_poly[test_id]))
-    if plot:
-        plt.plot(rand_poly)
-        plt.plot(poly_fit.predict(data))
-    return scores
-
-
-def persistence_landscape_distance(pdiag1, pdiag2, d=1, plot=False):
-    pers_lands1 = persim.landscapes.PersLandscapeApprox(dgms=pdiag1, hom_deg=d)
-    pers_lands2 = persim.landscapes.PersLandscapeApprox(dgms=pdiag2, hom_deg=d)
-    [pland1_snapped, pland2_snapped] = persim.landscapes.snap_pl(
-        [pers_lands1, pers_lands2]
-    )
-    true_diff_pl = pland1_snapped - pland2_snapped
-    significance = true_diff_pl.sup_norm()
-    print(f"The threshold for significance is {significance}.")
-    if plot:
-        plt.figure()
-        persim.landscapes.plot_landscape_simple(true_diff_pl)
-        plt.legend([])
-    return pers_lands1, pers_lands2, true_diff_pl
-
-
-def binary_hierarchical_labeling(nclasses, npoints):
-    labels = []
-    for l in range(len(nclasses)):
-        labels.append(np.zeros(npoints))
-        for k in range(nclasses[l]):
-            interval = int(npoints / nclasses[l])
-            labels[l][k * interval : (k + 1) * interval] = k
-    return labels
-
-
-def hierarchical_labeling_from_data(labels, pairings):
-    lbls_new = []
-    for l in labels:
-        lbls_new.append(np.where(l == pairings)[0][0])
-    return np.asarray(lbls_new)
 
 
 def generate_gratings(res, angle, sfq):

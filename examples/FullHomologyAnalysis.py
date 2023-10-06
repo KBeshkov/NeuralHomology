@@ -385,7 +385,7 @@ for stim_type in subfolders:
             # plt.axis('off')
             # plt.savefig(save_path+stim_type+'_'+mouse_name+'noise_hom'+metric_type+str(kn)+'.png',dpi=1000)
 
-            # with open('/Users/constb/Data/NeuralHomology/significant_manifolds'+metric_type+'.pkl', 'wb') as f:
+            # with open('/Users/constb/Data/NeuralHomology/significant_manifolds_mnorm_'+metric_type+'.pkl', 'wb') as f:
             #     pickle.dump(significant_manifolds, f)
 
             # #Compare decoding accuracy from each subpopulation
@@ -472,7 +472,7 @@ stim_names = ['Static_','Short','StaticSin','Local','Minnie','Drifting','Noisy',
 stim_cmap = ['#873d1bff','#d66634ff','#e1906cff','#3f8d2fff','#76cb65ff','#315992ff','#4c7dc3ff','#7b9fd2ff']
 
 with open(
-    "/Users/constb/Data/NeuralHomology/significant_manifolds" + metric_type + ".pkl",
+    "/Users/constb/Data/NeuralHomology/significant_manifolds_mnorm_" + metric_type + ".pkl",
     "rb",
 ) as f:
     significant_manifolds = pickle.load(f)
@@ -619,17 +619,17 @@ for i, s in enumerate(stim_names):
     prev_hist_data = curr_hist_data
 plt.xticks([])
 plt.ylim(0, 27)
-# plt.savefig(
-#     "/Users/constb/Figures/NeuralHomology/"
-#     + half_circle
-#     + metric_type
-#     + str(N_sub)
-#     + str(xy_boundaries[0])
-#     + "subset_cohom_features.png",
-#     transparent=True,
-#     dpi=500,
-#     bbox_inches="tight",
-# )  # ,figsize=(8*cm,6*cm))
+plt.savefig(
+    "/Users/constb/Figures/NeuralHomology/"
+    + half_circle
+    + metric_type
+    + str(N_sub)
+    + str(xy_boundaries[0])
+    + "subset_cohom_features.png",
+    transparent=True,
+    dpi=500,
+    bbox_inches="tight",
+)  # ,figsize=(8*cm,6*cm))
 
 #%%
 legend = plt.legend(

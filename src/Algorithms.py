@@ -341,20 +341,10 @@ class Persistent_Homology:
         birth_death_diagram_copy = np.copy(birth_death_diagram)
         a = np.concatenate(birth_death_diagram_copy).flatten()
         finite_dgm = a[np.isfinite(a)]
-        ax_min, ax_max = np.min(finite_dgm), np.max(finite_dgm)
-        x_r = ax_max - ax_min
-
-        buffer = x_r / 5
-
-        x_down = ax_min - buffer / 2
-        x_up = ax_max + buffer
-
-        y_down, y_up = x_down, x_up
-        yr = y_up - y_down
-        b_inf = y_down + yr * 0.95
+        ax_max = np.max(finite_dgm)
         norm_pers = []
         for i in range(len(birth_death_diagram)):
-            norm_pers.append((birth_death_diagram[i]) / b_inf)
+            norm_pers.append((birth_death_diagram[i]) / ax_max)
         return norm_pers
 
     def perm_test(self, manifold, metric, n_perms, dimred=0, dim=1, pval=99,nperms=None):
@@ -540,120 +530,3 @@ class Barcode_Analyzer:
                     va="center",
                 )  # C[i*txt_labels])
         plt.axis("equal")
-
-
-class Neural_Network:
-    """
-    Custom neural network class which allows to easily study how manifolds propagate through a neural network.
-    """
-
-    def __init__(self, n_neurons, weight_std=1, bias_std=0):
-        """
-        Parameters
-        ----------
-        n_neurons : list
-            A list of the number of neurons in each layer. [input neurons, hidden neurons, ..., output neurons]
-        weight_std : list or float
-            The standard deviation of the weights between layers. If it is a list it has to have a size of #layers - 1.
-            If it is a scalar the weights between all the layers will have the same standard deviation.
-            The default is 1, which corresponds to an edge of chaos regime.
-        bias_std: list or float
-            The standard deviation of the biases in each layer. If it is a list it has to have a size of #layers-1.
-            If it is a sclar the biases of all layers will have the same standard deviation.
-            The default is 0, which corresponds to no bias.
-
-        Returns
-        -------
-        None.
-        """
-
-        self.n_neurons = n_neurons
-        self.weight_std = weight_std
-        self.weights = []
-        self.biases = []
-        for l in range(len(n_neurons) - 1):
-            if type(weight_std) == list:
-                current_wstd = weight_std[l]**2 / n_neurons[l + 1]
-                current_bias = bias_std[l]
-            else:
-                current_wstd = weight_std
-                current_bias = bias_std
-            self.weights.append(
-                current_wstd * np.random.randn(self.n_neurons[l], self.n_neurons[l + 1])
-            )
-            self.biases.append(current_bias * np.random.randn(self.n_neurons[l + 1]))
-
-    def forward(self, x):
-        per_layer_state = []
-        for i in range(len(self.n_neurons) - 2):
-            biases = np.ones([len(x.T), len(self.weights[i].T)]) * self.biases[i]
-            x = self.weights[i].T @ x + biases.T
-            per_layer_state.append(x)            
-            x = np.tanh(x)
-        x = self.weights[-1].T @ x
-        per_layer_state.append(x)
-        return x, per_layer_state
-
-    def inverse(self, y):
-        y = np.linalg.pinv(self.weights[-1].T) @ y
-        for i in range(2, len(self.n_neurons)):
-            biases = np.ones([len(y.T), len(self.weights[-i].T)]) * self.biases[-i]
-            y = np.linalg.pinv(self.weights[-i].T) @ (np.arctanh(y) - biases.T)
-        return y
-
-
-class Inverse_Autoencoder(nn.Module):
-    def __init__(self, in_dim, n_neurons, out_dim, std_weights, n_layers=1):
-        super(Inverse_Autoencoder, self).__init__()
-        self.in_dim = in_dim
-        self.n_neurons = n_neurons
-        self.std_weights = std_weights
-        self.n_layers = n_layers
-        self.out_dim = out_dim
-
-        self.layers = nn.ModuleList()
-        self.inp_layer = nn.Linear(in_dim, n_neurons, bias=True)
-        self.act_fun = nn.Tanh()
-        for i in range(n_layers):
-            out_layer = nn.Linear(n_neurons, n_neurons, bias=True)
-            torch.nn.init.normal_(
-                out_layer.weight, mean=0.0, std=std_weights / np.sqrt(self.n_neurons)
-            )
-            self.layers.append(out_layer.double())
-        self.out_layer = nn.Linear(n_neurons, out_dim)
-
-    def forward(self, x):
-        out = self.act_fun(self.inp_layer(x.double().T))
-        for layer in self.layers:
-            out = self.act_fun(layer(out))
-        out = self.out_layer(out)
-        return out
-
-    def train(self, train_dat, optimizer, epochs=100, batch_sz=20):
-        running_loss = 0.0
-        loss_curve = []
-        inputs = torch.tensor(train_dat[0])
-        inputs.requires_grad = True
-        targets = torch.tensor(train_dat[1]).double()
-        criterion = nn.MSELoss()
-        for epoch in range(epochs):  # loop over the dataset multiple times
-            batch_ind = torch.arange(
-                0, len(train_dat[1].T), batch_sz
-            )  # torch.tensor(np.random.choice(np.arange(0,len(train_dat[1].T)),batch_sz,replace=False))#
-            for i in batch_ind:
-
-                # zero the parameter gradients
-                optimizer.zero_grad()
-
-                # forward + backward + optimize
-                outputs = self.forward(inputs[i : i + batch_sz].T)
-                loss = criterion(outputs, targets[:, i : i + batch_sz].T)
-                loss.backward()
-                optimizer.step()
-
-                # print statistics
-                running_loss = loss.item()
-                loss_curve.append(running_loss)
-            if epoch % 50 == 0 or epoch == 0:
-                print(str(running_loss) + " MSE loss")
-        return loss_curve

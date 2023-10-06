@@ -19,7 +19,7 @@ subfolders = next(os.walk(data_folder))[1]
 
 save_path = "/Users/constb/Data/NeuralHomology/Sampling/"
 
-sampling_type = "cells"
+sampling_type = "stim"
 
 stim_bins = np.linspace(0, 2 * np.pi + 2 * np.pi / 90, 92)[
     :-1
