@@ -14,10 +14,11 @@ plt.rcParams["font.family"] = "Arial"
 plt.rcParams["font.size"] = 6
 cm = 1 / 2.54
 #%%Initialize analysis hyperparameters
-data_folder = "/Users/constb/Data/PachitariuData/"
+data_folder = "/Volumes/T7 Touch/Data/VisHom_Data/"
 subfolders = next(os.walk(data_folder))[1]
+data_save_path = "/Users/kosio/Data/NeuralHomology/"
 
-save_path = "/Users/constb/Data/NeuralHomology/Sampling/"
+save_path = "/Users/kosio/Figures/NeuralHomology/Sampling/"
 
 sampling_type = "stim"
 

@@ -52,13 +52,12 @@ import persim.landscapes
 from ripser import ripser as tda
 from persim import plot_diagrams
 import umap.umap_ as umap
-from perlin_noise import PerlinNoise
 
 import torch
 from torch import nn
 import torch.optim as optim
 
-np.warnings.filterwarnings('ignore', category=np.VisibleDeprecationWarning)
+# np.warnings.filterwarnings('ignore', category=np.VisibleDeprecationWarning)
 
 
 class Manifold_Generator:
@@ -338,7 +337,7 @@ class Persistent_Homology:
         -----------------------
         Outputs the persistence of a feature normalized between 0 and 1.
         """
-        birth_death_diagram_copy = np.copy(birth_death_diagram)
+        birth_death_diagram_copy = [np.copy(birth_death_diagram[i]) for i in range(len(birth_death_diagram))]
         a = np.concatenate(birth_death_diagram_copy).flatten()
         finite_dgm = a[np.isfinite(a)]
         ax_max = np.max(finite_dgm)

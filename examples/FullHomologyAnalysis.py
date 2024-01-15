@@ -9,19 +9,23 @@ import pickle
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
 
-np.warnings.filterwarnings('ignore', category=np.VisibleDeprecationWarning)                 
+# np.warnings.filterwarnings('ignore', category=np.VisibleDeprecationWarning)                 
 plt.style.use("default")  # ../misc/report.mplstyle')
 cust_cmap = sns.color_palette("flare_r", as_cmap=True)
-cust_cmap2 = cm.get_cmap("Set2").colors
+cust_cmap2 = ((0.4, 0.7607843137254902, 0.6470588235294118),
+ (0.9882352941176471, 0.5529411764705883, 0.3843137254901961),
+ (0.2274509804, 0.462745098, 1),
+ (0.9058823529411765, 0.5411764705882353, 0.7647058823529411))#cm.get_cmap("Set2").colors
 cm = 1 / 2.54
 plt.rcParams["font.family"] = "Arial"
 #plt.rcParams.update({'figure.max_open_warning': 0})
 plt.ioff()
 #%%Initialize analysis hyperparameters
-data_folder = "/Users/constb/Data/PachitariuData/"
+data_folder = "/Volumes/T7 Touch/Data/VisHom_Data/"
 subfolders = next(os.walk(data_folder))[1]
+data_save_path = "/Users/kosio/Data/NeuralHomology/"
 
-metric_type = "Euclidean"  # determines the metric that will be used throughout the homology calculations
+metric_type = "GeodesicKNN"  # determines the metric that will be used throughout the homology calculations
 kn = 4#''#
 if metric_type == "Euclidean":
     metric = pairwise_distances
@@ -33,7 +37,7 @@ elif metric_type == "Implicit":
     metric = implicit_metric_circle
 
 half_circle = "half"
-save_path = "/Users/constb/Figures/NeuralHomology/" + metric_type + str(kn) + "/"
+save_path = "/Users/kosio/Figures/NeuralHomology/" + metric_type + str(kn) + "/"
 
 
 stim_res = 126
@@ -44,12 +48,12 @@ stim_bins_degrees = 180 * stim_bins / np.pi
 N_sub = 0 #determines the number of subset neurons to choose from each class
 dim_red = 0  # determines whether to do dimensionality reduction
 dmult = 0.5  # determines where to take a cross-section
-n_perms = 100 # determines how many permutation to do in the statistical test
+n_perms = 1000 # determines how many permutations to do in the statistical test
 pvalue = 0.1 / 29  # Bonferonni corrected pvalue in percent
 reducer = PCA(
     n_components=2
 )  # umap.UMAP(n_neighbors=50,min_dist=0,n_components=2) #method for dimensinoality reduction plots
-xy_boundaries = (0.3, 0.3) #OSI and DSI boundaries
+xy_boundaries = (0.25, 0.25) #OSI and DSI boundaries
 
 
 Homologizer = Persistent_Homology()
@@ -101,17 +105,17 @@ for stim_type in subfolders:
             Homologizer.barcode_plot(hom_data[1], pval=pvalue_hom[0],figsize=(4.2*cm,3.3*cm))
             plt.xticks([])
             plt.suptitle(stim_type+' '+mouse_name,fontsize=10)
-            # plt.savefig(
-            #     save_path
-            #     + stim_type
-            #     + "_"
-            #     + mouse_name
-            #     + "_barcode_"
-            #     + metric_type
-            #     + str(kn)
-            #     + ".png",
-            #     dpi=500, transparent=True
-            # )
+            plt.savefig(
+                save_path
+                + stim_type
+                + "_"
+                + mouse_name
+                + "_barcode_"
+                + metric_type
+                + str(kn)
+                + ".png",
+                dpi=500, transparent=True
+            )
         except:
             cycle_lengths = hom_data[1][0][:, 1] - hom_data[1][0][:, 0]
             max_cycle = np.argsort(cycle_lengths).astype(int)[-1]
@@ -119,27 +123,27 @@ for stim_type in subfolders:
                 hom_data[1][0][max_cycle][1] - hom_data[1][0][max_cycle][0]
             )
             Homologizer.barcode_plot(hom_data[1], 1, pval=pvalue_hom[0],figsize=(4.2*cm,3.3*cm))
-            # plt.savefig(
-            #     save_path
-            #     + stim_type
-            #     + "_"
-            #     + mouse_name
-            #     + "_barcode_"
-            #     + metric_type
-            #     + str(kn)
-            #     + ".png", transparent=True,
-            #     dpi=500,
-            # )
+            plt.savefig(
+                save_path
+                + stim_type
+                + "_"
+                + mouse_name
+                + "_barcode_"
+                + metric_type
+                + str(kn)
+                + ".png", transparent=True,
+                dpi=500,
+            )
 
         # Visualize the manifold with dimensionality reduction
-        ori_mfld = reducer.fit_transform(avg_responses)
-        fig = plt.figure()
-        plt.subplot(121)
-        plt.scatter(ori_mfld[:, 0], ori_mfld[:, 1], cmap="seismic", c=stim_bins[:-1])
-        plt.axis("off")
-        plt.subplot(122)
-        plt.imshow(hom_data[0])
-        # plt.savefig(
+        # ori_mfld = reducer.fit_transform(avg_responses)
+        # fig = plt.figure()
+        # plt.subplot(121)
+        # plt.scatter(ori_mfld[:, 0], ori_mfld[:, 1], cmap="seismic", c=stim_bins[:-1])
+        # plt.axis("off")
+        # plt.subplot(122)
+        # plt.imshow(hom_data[0])
+        # # plt.savefig(
         #     save_path
         #     + stim_type
         #     + "_"
@@ -152,21 +156,21 @@ for stim_type in subfolders:
         # )
 
         # Visualize the manifold with a polar graph and thresholded edges
-        edge_dist = np.copy(hom_data[0])
-        edge_dist[edge_dist > hom_crossection] = 0
-        plt.figure(dpi=200)
-        plt.subplot(121)
-        BA.plotCocycle2D(
-            hom_data[0],
-            ori_mfld[:, :2],
-            hom_crossection,
-            labels=stim_bins_degrees,
-            node_cmap="seismic",
-        )
-        plt.subplot(122)
-        plt.imshow(edge_dist, extent=[0, 360, 360, 0], cmap=cust_cmap)
-        plt.yticks([])
-        plt.tight_layout()
+        # edge_dist = np.copy(hom_data[0])
+        # edge_dist[edge_dist > hom_crossection] = 0
+        # plt.figure(dpi=200)
+        # plt.subplot(121)
+        # BA.plotCocycle2D(
+        #     hom_data[0],
+        #     ori_mfld[:, :2],
+        #     hom_crossection,
+        #     labels=stim_bins_degrees,
+        #     node_cmap="seismic",
+        # )
+        # plt.subplot(122)
+        # plt.imshow(edge_dist, extent=[0, 360, 360, 0], cmap=cust_cmap)
+        # plt.yticks([])
+        # plt.tight_layout()
         # plt.savefig(
         #     save_path
         #     + stim_type
@@ -385,50 +389,50 @@ for stim_type in subfolders:
             # plt.axis('off')
             # plt.savefig(save_path+stim_type+'_'+mouse_name+'noise_hom'+metric_type+str(kn)+'.png',dpi=1000)
 
-            # with open('/Users/constb/Data/NeuralHomology/significant_manifolds_mnorm_'+metric_type+'.pkl', 'wb') as f:
-            #     pickle.dump(significant_manifolds, f)
+            with open(data_save_path + "significant_manifolds_mnorm_"+metric_type+".pkl", 'wb') as f:
+                pickle.dump(significant_manifolds, f)
 
-            # #Compare decoding accuracy from each subpopulation
-            # X_train, X_test, y_train, y_test = train_test_split(
-            #     responses.T, indices, test_size=0.2,random_state=0)
-            # X_train_180, X_test_180, y_train_180, y_test_180 = train_test_split(
-            #     responses.T, indices%np.pi, test_size=0.2,random_state=0)
-            # DO_reg = LinearRegression().fit(X_train[:,unimodal_neurons],y_train)
-            # O_reg = LinearRegression().fit(X_train[:,bimodal_neurons],y_train)
-            # D_reg = LinearRegression().fit(X_train[:,nonlinear_neurons],y_train)
-            # untuned_reg = LinearRegression().fit(X_train[:,noise_neurons],y_train)
+            #Compare decoding accuracy from each subpopulation
+        #     X_train, X_test, y_train, y_test = train_test_split(
+        #         responses.T, indices, test_size=0.2,random_state=0)
+        #     X_train_180, X_test_180, y_train_180, y_test_180 = train_test_split(
+        #         responses.T, indices%np.pi, test_size=0.2,random_state=0)
+        #     DO_reg = LinearRegression().fit(X_train[:,unimodal_neurons],y_train)
+        #     O_reg = LinearRegression().fit(X_train[:,bimodal_neurons],y_train)
+        #     D_reg = LinearRegression().fit(X_train[:,nonlinear_neurons],y_train)
+        #     untuned_reg = LinearRegression().fit(X_train[:,noise_neurons],y_train)
             
-            # DO_reg_180 = LinearRegression().fit(X_train_180[:,unimodal_neurons],y_train_180)
-            # O_reg_180 = LinearRegression().fit(X_train_180[:,bimodal_neurons],y_train_180)
-            # D_reg_180 = LinearRegression().fit(X_train_180[:,nonlinear_neurons],y_train_180)
-            # untuned_reg_180 = LinearRegression().fit(X_train_180[:,noise_neurons],y_train_180)
+        #     DO_reg_180 = LinearRegression().fit(X_train_180[:,unimodal_neurons],y_train_180)
+        #     O_reg_180 = LinearRegression().fit(X_train_180[:,bimodal_neurons],y_train_180)
+        #     D_reg_180 = LinearRegression().fit(X_train_180[:,nonlinear_neurons],y_train_180)
+        #     untuned_reg_180 = LinearRegression().fit(X_train_180[:,noise_neurons],y_train_180)
             
-            # decoding_360['DO'].append(DO_reg.score(X_test[:,unimodal_neurons],y_test))
-            # decoding_360['O'].append(O_reg.score(X_test[:,bimodal_neurons],y_test))
-            # decoding_360['D'].append(D_reg.score(X_test[:,nonlinear_neurons],y_test))
-            # decoding_360['untuned'].append(untuned_reg.score(X_test[:,noise_neurons],y_test))
+        #     decoding_360['DO'].append(DO_reg.score(X_test[:,unimodal_neurons],y_test))
+        #     decoding_360['O'].append(O_reg.score(X_test[:,bimodal_neurons],y_test))
+        #     decoding_360['D'].append(D_reg.score(X_test[:,nonlinear_neurons],y_test))
+        #     decoding_360['untuned'].append(untuned_reg.score(X_test[:,noise_neurons],y_test))
             
-            # decoding_180['DO'].append(DO_reg_180.score(X_test_180[:,unimodal_neurons],y_test_180))
-            # decoding_180['O'].append(O_reg_180.score(X_test_180[:,bimodal_neurons],y_test_180))
-            # decoding_180['D'].append(D_reg_180.score(X_test_180[:,nonlinear_neurons],y_test_180))
-            # decoding_180['untuned'].append(untuned_reg_180.score(X_test_180[:,noise_neurons],y_test_180))
+        #     decoding_180['DO'].append(DO_reg_180.score(X_test_180[:,unimodal_neurons],y_test_180))
+        #     decoding_180['O'].append(O_reg_180.score(X_test_180[:,bimodal_neurons],y_test_180))
+        #     decoding_180['D'].append(D_reg_180.score(X_test_180[:,nonlinear_neurons],y_test_180))
+        #     decoding_180['untuned'].append(untuned_reg_180.score(X_test_180[:,noise_neurons],y_test_180))
             
-            # decoding_difference['DO'].append(DO_reg.score(X_test[:,unimodal_neurons],y_test)-DO_reg_180.score(X_test_180[:,unimodal_neurons],y_test_180))
-            # decoding_difference['O'].append(O_reg.score(X_test[:,bimodal_neurons],y_test)-O_reg_180.score(X_test_180[:,bimodal_neurons],y_test_180))
-            # decoding_difference['D'].append(D_reg.score(X_test[:,nonlinear_neurons],y_test)-D_reg_180.score(X_test_180[:,nonlinear_neurons],y_test_180))
-            # decoding_difference['untuned'].append(untuned_reg.score(X_test[:,noise_neurons],y_test)-untuned_reg_180.score(X_test_180[:,noise_neurons],y_test_180))
+        #     decoding_difference['DO'].append(DO_reg.score(X_test[:,unimodal_neurons],y_test)-DO_reg_180.score(X_test_180[:,unimodal_neurons],y_test_180))
+        #     decoding_difference['O'].append(O_reg.score(X_test[:,bimodal_neurons],y_test)-O_reg_180.score(X_test_180[:,bimodal_neurons],y_test_180))
+        #     decoding_difference['D'].append(D_reg.score(X_test[:,nonlinear_neurons],y_test)-D_reg_180.score(X_test_180[:,nonlinear_neurons],y_test_180))
+        #     decoding_difference['untuned'].append(untuned_reg.score(X_test[:,noise_neurons],y_test)-untuned_reg_180.score(X_test_180[:,noise_neurons],y_test_180))
 
-        # with open("/Users/constb/Data/NeuralHomology/decoding_360_"+str(N_sub)+".pkl","wb") as f:
+        # with open(data_save_path+"decoding_360_"+str(N_sub)+".pkl","wb") as f:
         #     pickle.dump(decoding_360, f)
             
-        # with open("/Users/constb/Data/NeuralHomology/decoding_180_"+str(N_sub)+".pkl","wb") as f:
+        # with open(data_save_path+"decoding_180_"+str(N_sub)+".pkl","wb") as f:
         #     pickle.dump(decoding_180, f)
             
-        # with open("/Users/constb/Data/NeuralHomology/decoding_difference_"+str(N_sub)+".pkl","wb") as f:
+        # with open(data_save_path+"decoding_difference_"+str(N_sub)+".pkl","wb") as f:
         #     pickle.dump(decoding_difference, f)
             
         with open(
-            "/Users/constb/Data/NeuralHomology/significant_unimanifolds_"
+            data_save_path+"significant_unimanifolds_"
             + half_circle
             + metric_type
             + str(N_sub)
@@ -437,7 +441,7 @@ for stim_type in subfolders:
         ) as f:
             pickle.dump(significant_uni, f)
         with open(
-            "/Users/constb/Data/NeuralHomology/significant_bimanifolds_"
+            data_save_path+"significant_bimanifolds_"
             + half_circle
             + metric_type
             + str(N_sub)
@@ -446,7 +450,7 @@ for stim_type in subfolders:
         ) as f:
             pickle.dump(significant_bi, f)
         with open(
-            "/Users/constb/Data/NeuralHomology/significant_nonlinmanifolds_"
+            data_save_path+"significant_nonlinmanifolds_"
             + half_circle
             + metric_type
             + str(N_sub)
@@ -455,7 +459,7 @@ for stim_type in subfolders:
         ) as f:
             pickle.dump(significant_nonlin, f)
         with open(
-            "/Users/constb/Data/NeuralHomology/significant_noisemanifolds_"
+            data_save_path+"significant_noisemanifolds_"
             + half_circle
             + metric_type
             +str(N_sub)
@@ -472,7 +476,7 @@ stim_names = ['Static_','Short','StaticSin','Local','Minnie','Drifting','Noisy',
 stim_cmap = ['#873d1bff','#d66634ff','#e1906cff','#3f8d2fff','#76cb65ff','#315992ff','#4c7dc3ff','#7b9fd2ff']
 
 with open(
-    "/Users/constb/Data/NeuralHomology/significant_manifolds_mnorm_" + metric_type + ".pkl",
+    data_save_path+"significant_manifolds_mnorm_" + metric_type + ".pkl",
     "rb",
 ) as f:
     significant_manifolds = pickle.load(f)
@@ -495,7 +499,7 @@ plt.hist(
 plt.xticks([])
 #plt.ylim(0, 30)
 plt.savefig(
-    "/Users/constb/Figures/NeuralHomology/" + metric_type + "cohom_features.png",
+    save_path + metric_type + "cohom_features.png",
     transparent=True,
     dpi=500,
     bbox_inches="tight"
@@ -519,7 +523,7 @@ plt.xticks(
     ],
 )
 plt.savefig(
-    "/Users/constb/Figures/NeuralHomology/angle_sorted_responses.png",
+    save_path+"angle_sorted_responses.png",
     transparent=True,
     dpi=500,
     bbox_inches="tight"
@@ -538,7 +542,7 @@ for i in range(n_traces):
     plt.xticks([])
     plt.yticks([])
     plt.savefig(
-        "/Users/constb/Figures/NeuralHomology/angle_sorted_trace"+str(i+1)+".png",
+        save_path+"angle_sorted_trace"+str(i+1)+".png",
         transparent=True,
         dpi=500,
         bbox_inches="tight"
@@ -546,7 +550,7 @@ for i in range(n_traces):
 #%%
 
 with open(
-    "/Users/constb/Data/NeuralHomology/significant_unimanifolds_"
+    data_save_path+"significant_unimanifolds_"
     + half_circle
     + metric_type
     + str(N_sub) 
@@ -557,7 +561,7 @@ with open(
     signif_names =signif_un.keys()
     significant_uni = np.array(list(signif_un.values()))
 with open(
-    "/Users/constb/Data/NeuralHomology/significant_bimanifolds_"
+    data_save_path+"significant_bimanifolds_"
     + half_circle
     + metric_type
     + str(N_sub) 
@@ -566,7 +570,7 @@ with open(
 ) as f:
     significant_bi = np.array(list(pickle.load(f).values()))
 with open(
-    "/Users/constb/Data/NeuralHomology/significant_nonlinmanifolds_"
+    data_save_path+"significant_nonlinmanifolds_"
     + half_circle
     + metric_type
     + str(N_sub) 
@@ -575,7 +579,7 @@ with open(
 ) as f:
     significant_nonlin = np.array(list(pickle.load(f).values()))
 with open(
-    "/Users/constb/Data/NeuralHomology/significant_noisemanifolds_"
+    data_save_path+"significant_noisemanifolds_"
     + half_circle
     + metric_type
     + str(N_sub) 
@@ -613,14 +617,14 @@ for i, s in enumerate(stim_names):
                 zorder=100,
                 width=0.2,
                 edgecolor=cust_cmap2[j],
-                linewidth=1
+                linewidth=1.25
             )
 
     prev_hist_data = curr_hist_data
 plt.xticks([])
 plt.ylim(0, 27)
 plt.savefig(
-    "/Users/constb/Figures/NeuralHomology/"
+    save_path
     + half_circle
     + metric_type
     + str(N_sub)
@@ -648,7 +652,7 @@ fig = legend.figure
 fig.canvas.draw()
 bbox = legend.get_window_extent().transformed(fig.dpi_scale_trans.inverted())
 fig.savefig(
-    "/Users/constb/Figures/NeuralHomology/legend_cells.png",
+    save_path+"legend_cells.png",
     bbox_inches=bbox,
     transparent=True,
     dpi=500,
@@ -656,9 +660,9 @@ fig.savefig(
 
 
 #%% Decoding plots
-N_sub = 100
-with open("/Users/constb/Data/NeuralHomology/decoding_360_"+str(N_sub)+".pkl", "rb") as f:
-# with open("/Users/constb/Data/NeuralHomology/decoding_360.pkl", "rb") as f:
+# N_sub = 100
+with open(data_save_path+"decoding_360_"+str(N_sub)+".pkl", "rb") as f:
+# with open(data_save_path+"decoding_360.pkl", "rb") as f:
     decoding_360 = list(pickle.load(f).values())
     for i in range(len(decoding_360)):
         inval_indx = np.where(np.array(decoding_360[i])<0)[0]
@@ -666,8 +670,8 @@ with open("/Users/constb/Data/NeuralHomology/decoding_360_"+str(N_sub)+".pkl", "
         correct_array[inval_indx] = 0
         decoding_360[i] = correct_array
 
-# with open("/Users/constb/Data/NeuralHomology/decoding_180_"+str(N_sub)+".pkl", "rb") as f:
-with open("/Users/constb/Data/NeuralHomology/decoding_180.pkl", "rb") as f:
+# with open(data_save_path+"decoding_180_"+str(N_sub)+".pkl", "rb") as f:
+with open(data_save_path+"decoding_180_"+str(N_sub)+".pkl", "rb") as f:
     decoding_180 = list(pickle.load(f).values())
     for i in range(len(decoding_180)):
         inval_indx = np.where(np.array(decoding_180[i])<0)[0]
@@ -717,7 +721,7 @@ for i in range(len(decoding_360)):
 plt.xticks([])
 plt.ylim(0,1)
 plt.grid('on')
-plt.savefig("/Users/constb/Figures/NeuralHomology/decoding_360"+str(N_sub)+".png",
+plt.savefig(save_path+metric_type+"decoding_360"+str(N_sub)+".png",
     bbox_inches='tight',
     transparent=True,
     dpi=500)
@@ -750,7 +754,7 @@ plt.xticks([])
 plt.yticks([0,0.2,0.4,0.6,0.8,1],['','','','','',''])
 plt.ylim(0,1)
 plt.grid('on')
-plt.savefig("/Users/constb/Figures/NeuralHomology/decoding_180"+str(N_sub)+".png",
+plt.savefig(save_path+metric_type+"decoding_180"+str(N_sub)+".png",
     bbox_inches='tight',
     transparent=True,
     dpi=500)
@@ -782,7 +786,7 @@ for i in range(len(decoding_difference)):
 plt.xticks([])
 plt.ylim(-0.55,0.55)
 plt.grid('on')
-plt.savefig("/Users/constb/Figures/NeuralHomology/decoding_difference"+str(N_sub)+".png",
+plt.savefig(save_path+metric_type+"decoding_difference"+str(N_sub)+".png",
     bbox_inches='tight',
     transparent=True,
     dpi=500)
